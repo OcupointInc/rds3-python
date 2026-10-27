@@ -62,7 +62,7 @@ r = rds3.RDS3("10.20.30.40")
 
 ## Channel mapping
 
-Front-panel connectors for each receiver channel ([drawing](docs/RDS3_Channel_Mapping.pdf)):
+RF input and output connectors for each receiver channel ([drawing](docs/RDS3_Channel_Mapping.pdf)):
 
 | Channel | RF input | RF output |
 |---|---|---|

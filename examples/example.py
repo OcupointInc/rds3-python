@@ -5,13 +5,14 @@ from rds3 import RDS3, Mode
 
 rds3 = RDS3("192.168.1.249")          # the RDS3's IP address
 
-# Frontends: power all 16 on and set their attenuation (0-31 dB, common to all channels).
-rds3.set_frontends(True, attenuation_db=10)
+# Frontends: power all 16 on (they start at 31 dB attenuation), then set the attenuation
+# (0-31 dB, common to all channels).
+rds3.set_frontend_power(True)
 rds3.set_attenuation(0)
+rds3.set_mode(Mode.EXTERNAL_CAL)
 
 # Through: the receivers see their antenna inputs.
-rds3.set_mode(Mode.THROUGH)
-
+exit()
 # External cal: the receivers see the EXTERNAL CAL input.
 rds3.set_mode(Mode.EXTERNAL_CAL)
 
