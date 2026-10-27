@@ -6,8 +6,9 @@ Modes:
   internal_cal  the Barracuda cal source routed to all 16 receivers, CW or swept
 
 The internal source uses a fixed 11.8 GHz LO. Its level is the external-cal input level that
-would produce the same signal at the receivers, at most -38 dBm, set through a per-unit
-calibration table.
+would produce the same signal at the receivers, at most -38 dBm. It is set with the internal
+attenuator from one average full-output level (FULL_LEVEL_DBM), so it is approximate (a few dB
+across 400-650 MHz).
 """
 from __future__ import annotations
 
@@ -21,7 +22,6 @@ from dataclasses import dataclass
 from google.protobuf.json_format import MessageToDict
 
 from ._proto import Packet
-from .calibration import ATTENUATOR_MAX_DB, ATTENUATOR_STEP_DB, Calibration
 
 class Mode(str, enum.Enum):
     """Signal path for all 16 receivers."""
@@ -34,6 +34,10 @@ MODES = tuple(Mode)
 LO_MHZ = 11800
 IF_MIN_MHZ, IF_MAX_MHZ = 50.0, 1500.0
 MAX_LEVEL_DBM = -38.0
+# Equivalent external-cal level with no internal attenuation: the 400-650 MHz average measured on
+# the bench (-12.8 dBm at 400 MHz to -20.8 dBm at 650 MHz).
+FULL_LEVEL_DBM = -16.2
+ATTENUATOR_MAX_DB, ATTENUATOR_STEP_DB = 31.75, 0.25
 FRONTEND_ATTENUATION_MAX_DB = 31
 SUPPORTED_FIRMWARE = ("3.0.0-rc3",)
 RUNNING, FAULT = 4, 5
@@ -60,7 +64,7 @@ class Status:
 class RDS3:
     """One RDS3 on the network. Not thread-safe across processes; one controller at a time.
 
-    >>> with RDS3("192.168.1.135", calibration="RDS3-62EB988A0FDC.json") as r:
+    >>> with RDS3("192.168.1.135") as r:
     ...     r.set_frontends(True, attenuation_db=10)
     ...     r.set_mode("internal_cal")
     ...     r.set_level(-50)
@@ -68,9 +72,8 @@ class RDS3:
     """
 
     def __init__(self, host: str, port: int = 5000, timeout: float = 5.0,
-                 calibration: Calibration | str | None = None, check_firmware: bool = True):
+                 check_firmware: bool = True):
         self.host, self.port, self.timeout = host, port, timeout
-        self.calibration = Calibration.load(calibration) if isinstance(calibration, str) else calibration
         self._sock: socket.socket | None = None
         self._lock = threading.Lock()
         self._mode: Mode = "through"
@@ -228,24 +231,19 @@ class RDS3:
 
     # -- internal cal source -------------------------------------------------------------
     def set_level(self, level_dbm: float) -> float:
-        """Internal-cal level as the equivalent external-cal input level, at most -38 dBm.
-        Returns the level actually set (0.25 dB steps). Applies now in internal_cal mode,
+        """Internal-cal level as the equivalent external-cal input level, -47.95 to -38 dBm
+        (approximate: one average across the band). Returns the level requested. Applies now in internal_cal mode,
         otherwise when internal_cal is next selected."""
-        if not math.isfinite(level_dbm) or level_dbm > MAX_LEVEL_DBM:
-            raise ValueError(f"level must be at most {MAX_LEVEL_DBM:g} dBm")
-        if self.calibration is None:
-            raise RDS3Error("no level calibration loaded for this unit")
-        self._level_dbm = float(level_dbm)
+        self._take_level(level_dbm)
         if self._tone:
             self._apply_tone()
         return self._level_dbm
 
     def _take_level(self, level_dbm: float | None) -> None:
         if level_dbm is not None:
-            if not math.isfinite(level_dbm) or level_dbm > MAX_LEVEL_DBM:
-                raise ValueError(f"level must be at most {MAX_LEVEL_DBM:g} dBm")
-            if self.calibration is None:
-                raise RDS3Error("no level calibration loaded for this unit")
+            lowest = FULL_LEVEL_DBM - ATTENUATOR_MAX_DB
+            if not math.isfinite(level_dbm) or not lowest <= level_dbm <= MAX_LEVEL_DBM:
+                raise ValueError(f"level must be {lowest:g} to {MAX_LEVEL_DBM:g} dBm")
             self._level_dbm = float(level_dbm)
 
     def cw(self, frequency_mhz: float, level_dbm: float | None = None) -> dict:
@@ -260,7 +258,7 @@ class RDS3:
               level_dbm: float | None = None) -> dict:
         """A repeating sweep between two IF frequencies (MHz) every sweep_time_s seconds.
         With the 11.8 GHz high-side LO the tone runs from stop_mhz down to start_mhz, then
-        restarts. The level is chosen so no point in the band exceeds the requested level."""
+        restarts."""
         self._check_if(start_mhz); self._check_if(stop_mhz)
         if stop_mhz <= start_mhz:
             raise ValueError("stop must be above start")
@@ -276,29 +274,12 @@ class RDS3:
         if not IF_MIN_MHZ <= mhz <= IF_MAX_MHZ:
             raise ValueError(f"IF frequency must be {IF_MIN_MHZ:g}-{IF_MAX_MHZ:g} MHz")
 
-    def _attenuation_for(self, tone: dict) -> tuple[float, float, float]:
-        """(attenuation dB, level at the lowest point, level at the highest point)."""
-        cal = self.calibration
-        if tone["kind"] == "cw":
-            lo = hi = cal.level_at_0db(tone["frequency_mhz"])
-        else:
-            hi = cal.peak_level_at_0db(tone["start_mhz"], tone["stop_mhz"])
-            lo = min(cal.level_at_0db(tone["start_mhz"]), cal.level_at_0db(tone["stop_mhz"]),
-                     *[p for f, p in zip(cal.frequency_mhz, cal.level_at_0db_dbm)
-                       if tone["start_mhz"] <= f <= tone["stop_mhz"]])
-        target = self._level_dbm
-        attenuation = math.ceil((hi - target) / ATTENUATOR_STEP_DB - 1e-9) * ATTENUATOR_STEP_DB
-        if attenuation < 0:
-            raise RDS3Error(f"{target:g} dBm is above what the source reaches here ({hi:.1f} dBm)")
-        if attenuation > ATTENUATOR_MAX_DB:
-            raise RDS3Error(f"{target:g} dBm is below the lowest level here ({hi - ATTENUATOR_MAX_DB:.1f} dBm)")
-        return attenuation, lo - attenuation, hi - attenuation
-
     def _apply_tone(self) -> dict:
         tone = dict(self._tone)
-        if self._level_dbm is not None and self.calibration is not None:
-            attenuation, lo, hi = self._attenuation_for(tone)
-            tone.update(level_dbm=round(hi, 2), level_min_dbm=round(lo, 2), attenuator_db=attenuation)
+        if self._level_dbm is not None:
+            steps = round((FULL_LEVEL_DBM - self._level_dbm) / ATTENUATOR_STEP_DB)
+            attenuation = min(max(steps * ATTENUATOR_STEP_DB, 0.0), ATTENUATOR_MAX_DB)
+            tone.update(level_dbm=round(FULL_LEVEL_DBM - attenuation, 2), attenuator_db=attenuation)
         if self._mode is not Mode.INTERNAL_CAL:
             tone["applied"] = False   # stored; applied when internal_cal is selected
             return tone

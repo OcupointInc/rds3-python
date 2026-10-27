@@ -6,10 +6,10 @@ Ethernet (TCP port 5000).
 ```python
 from rds3 import RDS3, Mode
 
-with RDS3("192.168.1.135", calibration="RDS3-62EB988A0FDC.json") as r:
+with RDS3("192.168.1.249") as r:
     r.set_frontends(True, attenuation_db=10)       # power on all 16 frontends, 0-31 dB
     r.set_mode(Mode.INTERNAL_CAL)                  # THROUGH | INTERNAL_CAL | EXTERNAL_CAL
-    r.cw(500, level_dbm=-50)                       # CW tone at 500 MHz, -50 dBm
+    r.cw(500, level_dbm=-40)                       # CW tone at 500 MHz, about -40 dBm
     r.sweep(400, 650, sweep_time_s=0.5, level_dbm=-45)   # or a repeating sweep
     print(r.status())
     r.set_mode(Mode.THROUGH)
@@ -39,14 +39,12 @@ signal path. Turning the frontends off also stops the internal source and return
 * `cw(frequency_mhz, level_dbm=None)`: a continuous tone.
 * `sweep(start_mhz, stop_mhz, sweep_time_s, level_dbm=None)`: a repeating sweep. The tone runs from `stop_mhz`
   down to `start_mhz` every `sweep_time_s` (1 us to 10 s), then restarts.
-* `level_dbm` (or `set_level(dbm)` on its own): the level is the **external-cal input level that would put the same signal
-  on the receivers**, at most -38 dBm. It is set in 0.25 dB steps from the unit's calibration
-  table and holds across the IF band for CW. For a sweep, the level is set so no frequency in
-  the band exceeds the request; the returned `level_min_dbm` is the lowest point.
+* `level_dbm` (or `set_level(dbm)` on its own): the level is the **external-cal input level that
+  would put roughly the same signal on the receivers**, -47.95 to -38 dBm. It is set with the
+  internal attenuator (0.25 dB steps) from one average full-output level (`FULL_LEVEL_DBM`,
+  -16.2 dBm), so it is approximate: the real level runs about 3 dB above the setting at 400 MHz
+  and about 4.5 dB below it at 650 MHz.
 * Settings made in another mode are kept and applied when `internal_cal` is selected.
-
-Each unit has its own calibration file (equivalent level per IF frequency with no internal
-attenuation). The level can only be set inside the calibrated frequency range.
 
 ## Requirements
 
