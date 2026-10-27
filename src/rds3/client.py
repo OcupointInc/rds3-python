@@ -65,12 +65,11 @@ class Status:
 class RDS3:
     """One RDS3 on the network. Not thread-safe across processes; one controller at a time.
 
-    >>> with RDS3("192.168.1.135") as r:
+    >>> with RDS3("192.168.1.249") as r:
     ...     r.set_frontends(True)
     ...     r.set_attenuation(10)
-    ...     r.set_mode("internal_cal")
-    ...     r.set_level(-50)
-    ...     r.cw(500)
+    ...     r.set_mode(Mode.INTERNAL_CAL)
+    ...     r.cw(500, level_dbm=-30)
     """
 
     def __init__(self, host: str, port: int = 5000, timeout: float = 5.0,
