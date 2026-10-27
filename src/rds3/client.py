@@ -66,7 +66,7 @@ class RDS3:
     """One RDS3 on the network. Not thread-safe across processes; one controller at a time.
 
     >>> with RDS3("192.168.1.249") as r:
-    ...     r.set_frontends(True)
+    ...     r.set_frontend_power(True)
     ...     r.set_attenuation(10)
     ...     r.set_mode(Mode.INTERNAL_CAL)
     ...     r.cw(500, level_dbm=-30)
@@ -161,7 +161,7 @@ class RDS3:
                       level_dbm=self._level_dbm, tone=self._tone, firmware=self.firmware)
 
     # -- frontends -----------------------------------------------------------------------
-    def set_frontends(self, on: bool) -> None:
+    def set_frontend_power(self, on: bool) -> None:
         """Power all 16 frontends on or off. Powering on starts at 31 dB attenuation (already-on
         frontends keep theirs). Turning them off also stops the internal cal source and returns
         to through mode."""
@@ -232,7 +232,7 @@ class RDS3:
 
     def off(self) -> None:
         """Stop the internal cal source and power the frontends down."""
-        self.set_frontends(False)
+        self.set_frontend_power(False)
 
     # -- internal cal source -------------------------------------------------------------
     def set_level(self, level_dbm: float) -> float:

@@ -7,7 +7,7 @@ Ethernet (TCP port 5000).
 from rds3 import RDS3, Mode
 
 with RDS3("192.168.1.249") as r:
-    r.set_frontends(True)                          # power on all 16 frontends (starts at 31 dB)
+    r.set_frontend_power(True)                          # power on all 16 frontends (starts at 31 dB)
     r.set_attenuation(10)                          # frontend attenuation, 0-31 dB
     r.set_mode(Mode.INTERNAL_CAL)                  # THROUGH | INTERNAL_CAL | EXTERNAL_CAL
     # Level = Barracuda output, -16.2 to -47.95 dBm. The cal path has about 28 dB of insertion
@@ -32,7 +32,7 @@ while the internal source starts, and it is routed only once it is running.
 
 ## Frontends
 
-`set_frontends(on)` powers all 16 frontends on or off together. Powering on starts at 31 dB
+`set_frontend_power(on)` powers all 16 frontends on or off together. Powering on starts at 31 dB
 attenuation. `set_attenuation(db)` sets the attenuation (0-31 dB, 1 dB steps, common to all 16
 channels) on frontends that are on, without touching the signal path. Turning the frontends off
 also stops the internal source and returns to through.
