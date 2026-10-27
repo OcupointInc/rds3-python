@@ -60,6 +60,29 @@ r = rds3.RDS3("10.20.30.40")
 * Firmware 3.0.0-rc4 or later is needed for this. Earlier firmware answers discovery only
   from its own subnet and has no `set-network`.
 
+## Channel mapping
+
+Front-panel connectors for each receiver channel ([drawing](docs/RDS3_Channel_Mapping.pdf)):
+
+| Channel | RF input | RF output |
+|---|---|---|
+| 1 | J28 | J1 |
+| 2 | J27 | J2 |
+| 3 | J26 | J3 |
+| 4 | J25 | J4 |
+| 5 | J32 | J5 |
+| 6 | J31 | J6 |
+| 7 | J30 | J7 |
+| 8 | J29 | J8 |
+| 9 | J20 | J9 |
+| 10 | J19 | J10 |
+| 11 | J18 | J11 |
+| 12 | J17 | J12 |
+| 13 | J24 | J13 |
+| 14 | J23 | J14 |
+| 15 | J22 | J15 |
+| 16 | J21 | J16 |
+
 ## Modes
 
 | Mode | Receivers see | Internal cal source and its clocks |
