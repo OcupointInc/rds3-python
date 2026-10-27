@@ -5,10 +5,10 @@ Modes:
   external_cal  the EXTERNAL CAL input routed to all 16 receivers; Barracuda off
   internal_cal  the Barracuda cal source routed to all 16 receivers, CW or swept
 
-The internal source uses a fixed 11.8 GHz LO. Its level is the external-cal input level that
-would produce the same signal at the receivers, at most -38 dBm. It is set with the internal
-attenuator from one average full-output level (FULL_LEVEL_DBM), so it is approximate (a few dB
-across 400-650 MHz).
+The internal source uses a fixed 11.8 GHz LO. Its level is the Barracuda's output level, before
+the cal path (which has about 28 dB of insertion loss to each receiver input): -16.2 dBm at full
+output down to -47.95 dBm. It is set with the internal attenuator from one average full-output
+level (FULL_LEVEL_DBM), so it is approximate (a few dB across 400-650 MHz).
 """
 from __future__ import annotations
 
@@ -33,11 +33,12 @@ class Mode(str, enum.Enum):
 MODES = tuple(Mode)
 LO_MHZ = 11800
 IF_MIN_MHZ, IF_MAX_MHZ = 50.0, 1500.0
-MAX_LEVEL_DBM = -38.0
-# Equivalent external-cal level with no internal attenuation: the 400-650 MHz average measured on
-# the bench (-12.8 dBm at 400 MHz to -20.8 dBm at 650 MHz).
+# Barracuda output level with no internal attenuation: the 400-650 MHz average measured on the
+# bench (-12.8 dBm at 400 MHz to -20.8 dBm at 650 MHz).
 FULL_LEVEL_DBM = -16.2
 ATTENUATOR_MAX_DB, ATTENUATOR_STEP_DB = 31.75, 0.25
+MAX_LEVEL_DBM, MIN_LEVEL_DBM = FULL_LEVEL_DBM, FULL_LEVEL_DBM - ATTENUATOR_MAX_DB   # -16.2 to -47.95 dBm
+CAL_PATH_LOSS_DB = 28.0   # Barracuda output to each receiver input (bench: through gain minus cal gain)
 FRONTEND_ATTENUATION_MAX_DB = 31
 SUPPORTED_FIRMWARE = ("3.0.0-rc3",)
 RUNNING, FAULT = 4, 5
@@ -231,8 +232,8 @@ class RDS3:
 
     # -- internal cal source -------------------------------------------------------------
     def set_level(self, level_dbm: float) -> float:
-        """Internal-cal level as the equivalent external-cal input level, -47.95 to -38 dBm
-        (approximate: one average across the band). Returns the level requested. Applies now in internal_cal mode,
+        """Barracuda output level, -47.95 to -16.2 dBm (approximate: one average across the band).
+        Each receiver input sees about CAL_PATH_LOSS_DB (28 dB) less. Returns the level requested. Applies now in internal_cal mode,
         otherwise when internal_cal is next selected."""
         self._take_level(level_dbm)
         if self._tone:
@@ -241,14 +242,13 @@ class RDS3:
 
     def _take_level(self, level_dbm: float | None) -> None:
         if level_dbm is not None:
-            lowest = FULL_LEVEL_DBM - ATTENUATOR_MAX_DB
-            if not math.isfinite(level_dbm) or not lowest <= level_dbm <= MAX_LEVEL_DBM:
-                raise ValueError(f"level must be {lowest:g} to {MAX_LEVEL_DBM:g} dBm")
+            if not math.isfinite(level_dbm) or not MIN_LEVEL_DBM <= level_dbm <= MAX_LEVEL_DBM:
+                raise ValueError(f"level must be {MIN_LEVEL_DBM:g} to {MAX_LEVEL_DBM:g} dBm")
             self._level_dbm = float(level_dbm)
 
     def cw(self, frequency_mhz: float, level_dbm: float | None = None) -> dict:
         """A continuous tone at this frequency (MHz, 50-1500), optionally with its level (dBm,
-        the equivalent external-cal input level, at most -38)."""
+        the Barracuda output level, -47.95 to -16.2)."""
         self._check_if(frequency_mhz)
         self._take_level(level_dbm)
         self._tone = {"kind": "cw", "frequency_mhz": float(frequency_mhz)}

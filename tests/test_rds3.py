@@ -60,12 +60,13 @@ def test_sweep_never_exceeds_the_level_and_ramps_the_synthesizer_upward(board):
 
 def test_level_limits(board):
     r = connect(board)
-    for bad in (-37.5, -48.0, float("nan")):
-        with pytest.raises(ValueError, match="-47.95 to -38"):
+    for bad in (-16.0, -48.0, float("nan")):
+        with pytest.raises(ValueError, match="-47.95 to -16.2"):
             r.set_level(bad)
     r.set_frontends(True); r.set_mode(Mode.INTERNAL_CAL)
     assert r.cw(500, level_dbm=-47.95)["attenuator_db"] == 31.75 and board.dsa_q == 127
-    assert r.cw(500, level_dbm=-38)["attenuator_db"] == 21.75 and board.dsa_q == 87
+    assert r.cw(500, level_dbm=-16.2)["attenuator_db"] == 0.0 and board.dsa_q == 0
+    assert r.cw(500, level_dbm=-36)["attenuator_db"] == 19.75 and board.dsa_q == 79
 
 
 def test_settings_made_before_internal_cal_apply_when_it_starts(board):

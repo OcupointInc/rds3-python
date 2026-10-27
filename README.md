@@ -9,8 +9,10 @@ from rds3 import RDS3, Mode
 with RDS3("192.168.1.249") as r:
     r.set_frontends(True, attenuation_db=10)       # power on all 16 frontends, 0-31 dB
     r.set_mode(Mode.INTERNAL_CAL)                  # THROUGH | INTERNAL_CAL | EXTERNAL_CAL
-    r.cw(500, level_dbm=-40)                       # CW tone at 500 MHz, about -40 dBm
-    r.sweep(400, 650, sweep_time_s=0.5, level_dbm=-45)   # or a repeating sweep
+    # Level = Barracuda output, -16.2 to -47.95 dBm. The cal path has about 28 dB of insertion
+    # loss, so -20 dBm here puts about -48 dBm at each receiver input.
+    r.cw(500, level_dbm=-20)                       # CW tone at 500 MHz
+    r.sweep(400, 650, sweep_time_s=0.5, level_dbm=-20)   # or a repeating sweep
     print(r.status())
     r.set_mode(Mode.THROUGH)
     r.off()                                        # frontends and cal source off
@@ -39,11 +41,11 @@ signal path. Turning the frontends off also stops the internal source and return
 * `cw(frequency_mhz, level_dbm=None)`: a continuous tone.
 * `sweep(start_mhz, stop_mhz, sweep_time_s, level_dbm=None)`: a repeating sweep. The tone runs from `stop_mhz`
   down to `start_mhz` every `sweep_time_s` (1 us to 10 s), then restarts.
-* `level_dbm` (or `set_level(dbm)` on its own): the level is the **external-cal input level that
-  would put roughly the same signal on the receivers**, -47.95 to -38 dBm. It is set with the
-  internal attenuator (0.25 dB steps) from one average full-output level (`FULL_LEVEL_DBM`,
-  -16.2 dBm), so it is approximate: the real level runs about 3 dB above the setting at 400 MHz
-  and about 4.5 dB below it at 650 MHz.
+* `level_dbm` (or `set_level(dbm)` on its own): the **Barracuda's output level**, -16.2 dBm (full
+  output) down to -47.95 dBm, in 0.25 dB steps of its internal attenuator. The cal path to each
+  receiver has about 28 dB of insertion loss (`CAL_PATH_LOSS_DB`), so the receiver inputs see about
+  28 dB less. The level is set from one average full-output figure (`FULL_LEVEL_DBM`, -16.2 dBm),
+  so it is approximate: about 3 dB above the setting at 400 MHz and about 4.5 dB below at 650 MHz.
 * Settings made in another mode are kept and applied when `internal_cal` is selected.
 
 ## Requirements
