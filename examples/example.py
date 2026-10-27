@@ -3,7 +3,7 @@ import time
 
 from rds3 import RDS3, Mode
 
-rds3 = RDS3("192.168.1.249")          # the RDS3's IP address
+rds3 = RDS3("192.168.1.249")          # the RDS3's IP address (find it with: python -m rds3 discover)
 
 # Frontends: power all 16 on (they start at 31 dB attenuation), then set the attenuation
 # (0-31 dB, common to all channels).
