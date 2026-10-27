@@ -9,10 +9,10 @@ rds3 = RDS3("192.168.1.249")          # the RDS3's IP address
 # (0-31 dB, common to all channels).
 rds3.set_frontend_power(True)
 rds3.set_attenuation(0)
-rds3.set_mode(Mode.EXTERNAL_CAL)
 
 # Through: the receivers see their antenna inputs.
-exit()
+rds3.set_mode(Mode.THROUGH)
+
 # External cal: the receivers see the EXTERNAL CAL input.
 rds3.set_mode(Mode.EXTERNAL_CAL)
 
