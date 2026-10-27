@@ -19,6 +19,47 @@ with RDS3("192.168.1.249") as r:
     r.off()                                        # frontends and cal source off
 ```
 
+## Finding the RDS3 and setting its address
+
+You don't need to know the RDS3's IP address or subnet. Connect it to the same switch as
+your computer and run:
+
+```
+python -m rds3 discover
+```
+
+```
+rds3 7a:c5:ba:d8:51:d6  169.254.81.214/16  DHCP (no server: fallback address)  firmware 3.0.0-rc4
+```
+
+This lists every RDS3 on that switch, whatever subnet it is set to. To give it a static
+address on your network (it saves the setting and reboots, about 5 s):
+
+```
+python -m rds3 set-network 7a:c5:ba:d8:51:d6 --ip 10.20.30.40 --subnet 255.255.255.0 --gateway 10.20.30.1
+```
+
+`--dhcp` switches it back to DHCP. The same from Python:
+
+```python
+import rds3
+
+for device in rds3.discover():
+    print(device)
+rds3.set_network("7a:c5:ba:d8:51:d6", ip="10.20.30.40", subnet="255.255.255.0", gateway="10.20.30.1")
+r = rds3.RDS3("10.20.30.40")
+```
+
+* Discovery uses UDP broadcasts on port 5001. These reach every device on the same switch,
+  whatever its subnet, but routers don't pass them on.
+* With several network adapters, the request goes out of each one. `--interface IP` (or
+  `interface_ip=`) uses only the adapter with that address.
+* A new RDS3 uses DHCP. If no DHCP server answers within about a minute, it uses its last
+  saved address, or a 169.254.x.y link-local address if it has none. It tries DHCP again
+  when the cable is reconnected or it is power cycled.
+* Firmware 3.0.0-rc4 or later is needed for this. Earlier firmware answers discovery only
+  from its own subnet and has no `set-network`.
+
 ## Modes
 
 | Mode | Receivers see | Internal cal source and its clocks |
@@ -52,5 +93,5 @@ also stops the internal source and returns to through.
 
 ## Requirements
 
-RDS3 firmware 3.0.0-rc3 (Barracuda RF B4 with the /1 rework). Python 3.10+, `protobuf` 4.25+.
+RDS3 firmware 3.0.0-rc3 or 3.0.0-rc4 (Barracuda RF B4 with the /1 rework); network setup needs rc4. Python 3.10+, `protobuf` 4.25+.
 One controller at a time: settings made by another program are not tracked.
