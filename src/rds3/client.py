@@ -11,20 +11,26 @@ calibration table.
 """
 from __future__ import annotations
 
+import enum
 import math
 import socket
 import threading
 import time
 from dataclasses import dataclass
-from typing import Literal
 
 from google.protobuf.json_format import MessageToDict
 
 from ._proto import Packet
 from .calibration import ATTENUATOR_MAX_DB, ATTENUATOR_STEP_DB, Calibration
 
-Mode = Literal["through", "internal_cal", "external_cal"]
-MODES = ("through", "internal_cal", "external_cal")
+class Mode(str, enum.Enum):
+    """Signal path for all 16 receivers."""
+    THROUGH = "through"            # antenna inputs; internal cal source and its clocks off
+    INTERNAL_CAL = "internal_cal"  # the internal cal source; powered and tuned only in this mode
+    EXTERNAL_CAL = "external_cal"  # the EXTERNAL CAL input; internal cal source and its clocks off
+
+
+MODES = tuple(Mode)
 LO_MHZ = 11800
 IF_MIN_MHZ, IF_MAX_MHZ = 50.0, 1500.0
 MAX_LEVEL_DBM = -38.0
@@ -138,8 +144,8 @@ class RDS3:
     def _read_mode(self) -> Mode:
         f = self._fixture()
         if not f.calibration_banks:
-            return "through"
-        return "external_cal" if f.external_calibration else "internal_cal"
+            return Mode.THROUGH
+        return Mode.EXTERNAL_CAL if f.external_calibration else Mode.INTERNAL_CAL
 
     def status(self) -> Status:
         f, v = self._fixture(), self._status().get("v2") or {}
@@ -160,7 +166,7 @@ class RDS3:
             raise ValueError(f"frontend attenuation must be 0-{FRONTEND_ATTENUATION_MAX_DB} dB")
         if not on:
             self._fixture(frontend_enabled=False, attenuation_db=db, calibration_banks=0)
-            self._mode = "through"
+            self._mode = Mode.THROUGH
             return
         self._fixture(frontend_enabled=True, attenuation_db=db, calibration_banks=f.calibration_banks,
                       external_calibration=f.external_calibration)
@@ -172,18 +178,21 @@ class RDS3:
         self.set_frontends(True, attenuation_db)
 
     # -- signal path ---------------------------------------------------------------------
-    def set_mode(self, mode: Mode, timeout: float = 5.0) -> None:
-        """Select through, internal_cal or external_cal. Only internal_cal powers the Barracuda
-        and the clock outputs that feed it; the other modes turn them off."""
-        if mode not in MODES:
-            raise ValueError(f"mode must be one of {', '.join(MODES)}")
+    def set_mode(self, mode: Mode | str, timeout: float = 5.0) -> None:
+        """Select Mode.THROUGH, Mode.INTERNAL_CAL or Mode.EXTERNAL_CAL. Only INTERNAL_CAL powers
+        and tunes the internal cal source and the clock outputs that feed it; the other modes
+        turn them off."""
+        try:
+            mode = Mode(mode)
+        except ValueError:
+            raise ValueError(f"mode must be one of {', '.join(m.value for m in Mode)}") from None
         f = self._fixture()
         if not f.frontend_enabled:
             raise RDS3Error("turn the frontends on first")
-        if mode != "internal_cal":
+        if mode is not Mode.INTERNAL_CAL:
             self._fixture(frontend_enabled=True, attenuation_db=f.attenuation_db,
-                          calibration_banks=0 if mode == "through" else _BOTH_BANKS,
-                          external_calibration=mode == "external_cal")
+                          calibration_banks=0 if mode is Mode.THROUGH else _BOTH_BANKS,
+                          external_calibration=mode is Mode.EXTERNAL_CAL)
             self._send("set_channels_enabled_request", "set_channels_enabled_response", enabled=False)
             self._mode = mode
             return
@@ -206,7 +215,7 @@ class RDS3:
         # Lowest level until a tone and level are applied, then route it.
         self._send("set_dsa_attenuation_request", "set_dsa_attenuation_response",
                    quarter_db=int(ATTENUATOR_MAX_DB / ATTENUATOR_STEP_DB))
-        self._mode = "internal_cal"
+        self._mode = Mode.INTERNAL_CAL
         if self._tone and self._level_dbm is not None:
             self._apply_tone()
         self._fixture(frontend_enabled=True, attenuation_db=f.attenuation_db,
@@ -230,13 +239,24 @@ class RDS3:
             self._apply_tone()
         return self._level_dbm
 
-    def cw(self, frequency_mhz: float) -> dict:
-        """A continuous tone at this IF frequency (MHz)."""
+    def _take_level(self, level_dbm: float | None) -> None:
+        if level_dbm is not None:
+            if not math.isfinite(level_dbm) or level_dbm > MAX_LEVEL_DBM:
+                raise ValueError(f"level must be at most {MAX_LEVEL_DBM:g} dBm")
+            if self.calibration is None:
+                raise RDS3Error("no level calibration loaded for this unit")
+            self._level_dbm = float(level_dbm)
+
+    def cw(self, frequency_mhz: float, level_dbm: float | None = None) -> dict:
+        """A continuous tone at this frequency (MHz, 50-1500), optionally with its level (dBm,
+        the equivalent external-cal input level, at most -38)."""
         self._check_if(frequency_mhz)
+        self._take_level(level_dbm)
         self._tone = {"kind": "cw", "frequency_mhz": float(frequency_mhz)}
         return self._apply_tone()
 
-    def sweep(self, start_mhz: float, stop_mhz: float, sweep_time_s: float) -> dict:
+    def sweep(self, start_mhz: float, stop_mhz: float, sweep_time_s: float,
+              level_dbm: float | None = None) -> dict:
         """A repeating sweep between two IF frequencies (MHz) every sweep_time_s seconds.
         With the 11.8 GHz high-side LO the tone runs from stop_mhz down to start_mhz, then
         restarts. The level is chosen so no point in the band exceeds the requested level."""
@@ -245,6 +265,7 @@ class RDS3:
             raise ValueError("stop must be above start")
         if not 1e-6 <= sweep_time_s <= 10.0:
             raise ValueError("sweep time must be 1 us to 10 s")
+        self._take_level(level_dbm)
         self._tone = {"kind": "sweep", "start_mhz": float(start_mhz), "stop_mhz": float(stop_mhz),
                       "sweep_time_s": float(sweep_time_s)}
         return self._apply_tone()
@@ -277,7 +298,7 @@ class RDS3:
         if self._level_dbm is not None and self.calibration is not None:
             attenuation, lo, hi = self._attenuation_for(tone)
             tone.update(level_dbm=round(hi, 2), level_min_dbm=round(lo, 2), attenuator_db=attenuation)
-        if self._mode != "internal_cal":
+        if self._mode is not Mode.INTERNAL_CAL:
             tone["applied"] = False   # stored; applied when internal_cal is selected
             return tone
         if self._level_dbm is None:
