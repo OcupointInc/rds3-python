@@ -190,10 +190,11 @@ class RDS3:
         if not f.frontend_enabled:
             raise RDS3Error("turn the frontends on first")
         if mode is not Mode.INTERNAL_CAL:
+            # Source off first: the firmware drops any cal routing whenever it turns RF off.
+            self._send("set_channels_enabled_request", "set_channels_enabled_response", enabled=False)
             self._fixture(frontend_enabled=True, attenuation_db=f.attenuation_db,
                           calibration_banks=0 if mode is Mode.THROUGH else _BOTH_BANKS,
                           external_calibration=mode is Mode.EXTERNAL_CAL)
-            self._send("set_channels_enabled_request", "set_channels_enabled_response", enabled=False)
             self._mode = mode
             return
         # Break first: no source reaches the receivers while the Barracuda starts.

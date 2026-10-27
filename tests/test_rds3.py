@@ -31,6 +31,9 @@ def test_through_and_external_cal_keep_the_barracuda_off(board):
     r.set_frontends(True, attenuation_db=12)
     r.set_mode("external_cal")
     assert (board.banks, board.external, board.rf, board.att) == (3, True, False, 12)
+    assert r.status().mode is Mode.EXTERNAL_CAL
+    r.set_mode(Mode.INTERNAL_CAL); r.set_mode(Mode.EXTERNAL_CAL)        # from the internal source too
+    assert (board.banks, board.external, board.rf) == (3, True, False)
     r.set_mode("through")
     assert (board.banks, board.rf) == (0, False) and r.status().mode is Mode.THROUGH
     with pytest.raises(ValueError, match="mode must be one of"):

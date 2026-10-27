@@ -64,7 +64,7 @@ class FakeRDS3:
             if self.rf and not self.lock:
                 self.fault, self.rf = 4, False
             if not m.enabled:
-                self.banks = 0 if not self.external else self.banks
+                self.banks = 0          # rds3.c rf_off(): calibration is dropped before RF goes off
                 self.dsa_q = 127
             reply.set_channels_enabled_response.SetInParent()
         elif kind in ("set_dsa_attenuation_request", "set_lo_frequency_request", "set_pll_frequency_request", "set_chirp_request"):
