@@ -26,7 +26,7 @@ def test_refuses_unsupported_firmware_and_the_wrong_lo_plan():
 
 def test_through_and_external_cal_keep_the_barracuda_off(board):
     r = connect(board)
-    r.set_frontends(True, attenuation_db=12)
+    r.set_frontends(True); r.set_attenuation(12)
     r.set_mode("external_cal")
     assert (board.banks, board.external, board.rf, board.att) == (3, True, False, 12)
     assert r.status().mode is Mode.EXTERNAL_CAL
@@ -40,7 +40,7 @@ def test_through_and_external_cal_keep_the_barracuda_off(board):
 
 def test_internal_cal_cw_sets_the_11_8_ghz_lo_and_the_calibrated_attenuation(board):
     r = connect(board)
-    r.set_frontends(True, attenuation_db=0)
+    r.set_frontends(True); r.set_attenuation(0)
     r.set_mode(Mode.INTERNAL_CAL)
     tone = r.cw(500, level_dbm=-40)
     assert (board.lo, board.pll, board.banks, board.external, board.rf) == (11800, 11300, 3, False, True)
@@ -96,3 +96,23 @@ def test_frontends_off_returns_to_through(board):
     assert (board.frontend, board.rf, board.banks) == (False, False, 0) and r.status().mode == "through"
     with pytest.raises(RDS3Error, match="frontends on"):
         r.set_mode("external_cal")
+
+
+def test_frontends_power_on_at_31_db_and_attenuation_is_separate(board):
+    board.att = 5
+    r = connect(board)
+    with pytest.raises(RDS3Error, match="frontends on"):
+        r.set_attenuation(10)
+    r.set_frontends(True)
+    assert board.frontend and board.att == 31
+    r.set_attenuation(7)
+    r.set_frontends(True)                      # already on: attenuation kept
+    assert board.att == 7 and r.status().frontend_attenuation_db == 7
+    r.set_mode(Mode.EXTERNAL_CAL); r.set_attenuation(3)
+    assert (board.banks, board.external, board.att) == (3, True, 3)   # path unchanged
+    for bad in (-1, 32, 2.5):
+        with pytest.raises(ValueError, match="0-31"):
+            r.set_attenuation(bad)
+    r.set_frontends(False); r.set_frontends(True)
+    assert board.att == 31
+

@@ -66,7 +66,8 @@ class RDS3:
     """One RDS3 on the network. Not thread-safe across processes; one controller at a time.
 
     >>> with RDS3("192.168.1.135") as r:
-    ...     r.set_frontends(True, attenuation_db=10)
+    ...     r.set_frontends(True)
+    ...     r.set_attenuation(10)
     ...     r.set_mode("internal_cal")
     ...     r.set_level(-50)
     ...     r.cw(500)
@@ -161,25 +162,29 @@ class RDS3:
                       level_dbm=self._level_dbm, tone=self._tone, firmware=self.firmware)
 
     # -- frontends -----------------------------------------------------------------------
-    def set_frontends(self, on: bool, attenuation_db: int | None = None) -> None:
-        """Power all 16 frontends on or off; attenuation is common to all of them (0-31 dB).
-        Turning them off also stops the internal cal source and returns to through mode."""
+    def set_frontends(self, on: bool) -> None:
+        """Power all 16 frontends on or off. Powering on starts at 31 dB attenuation (already-on
+        frontends keep theirs). Turning them off also stops the internal cal source and returns
+        to through mode."""
         f = self._fixture()
-        db = f.attenuation_db if attenuation_db is None else int(attenuation_db)
-        if not 0 <= db <= FRONTEND_ATTENUATION_MAX_DB:
-            raise ValueError(f"frontend attenuation must be 0-{FRONTEND_ATTENUATION_MAX_DB} dB")
         if not on:
-            self._fixture(frontend_enabled=False, attenuation_db=db, calibration_banks=0)
+            self._fixture(frontend_enabled=False, attenuation_db=f.attenuation_db, calibration_banks=0)
             self._mode = Mode.THROUGH
-            return
-        self._fixture(frontend_enabled=True, attenuation_db=db, calibration_banks=f.calibration_banks,
-                      external_calibration=f.external_calibration)
+        elif not f.frontend_enabled:
+            self._fixture(frontend_enabled=True, attenuation_db=FRONTEND_ATTENUATION_MAX_DB, calibration_banks=0)
+            self._mode = Mode.THROUGH
 
     def set_attenuation(self, attenuation_db: int) -> None:
-        """Frontend attenuation (0-31 dB, all 16 channels); the signal path is unchanged."""
-        if not self._fixture().frontend_enabled:
+        """Frontend attenuation, 0-31 dB in 1 dB steps, common to all 16 channels. The frontends
+        must be on; the signal path is unchanged."""
+        db = int(attenuation_db)
+        if db != attenuation_db or not 0 <= db <= FRONTEND_ATTENUATION_MAX_DB:
+            raise ValueError(f"frontend attenuation must be a whole number of dB, 0-{FRONTEND_ATTENUATION_MAX_DB}")
+        f = self._fixture()
+        if not f.frontend_enabled:
             raise RDS3Error("turn the frontends on first")
-        self.set_frontends(True, attenuation_db)
+        self._fixture(frontend_enabled=True, attenuation_db=db, calibration_banks=f.calibration_banks,
+                      external_calibration=f.external_calibration)
 
     # -- signal path ---------------------------------------------------------------------
     def set_mode(self, mode: Mode | str, timeout: float = 5.0) -> None:
