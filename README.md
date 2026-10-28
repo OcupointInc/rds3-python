@@ -3,6 +3,11 @@
 Controls the signal path, the 16 frontends and the internal calibration source of an RDS3 over
 Ethernet (TCP port 5000).
 
+![RDS3 block diagram: signal and calibration paths, and what you control](docs/RDS3_Block_Diagram.png)
+
+Block diagram also as [SVG](docs/RDS3_Block_Diagram.svg); connector mapping in
+[docs/RDS3_Channel_Mapping.pdf](docs/RDS3_Channel_Mapping.pdf).
+
 ```python
 from rds3 import RDS3, Mode
 
