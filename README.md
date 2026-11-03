@@ -8,31 +8,6 @@ Ethernet (TCP port 5000).
 Block diagram also as [SVG](docs/RDS3_Block_Diagram.svg); connector mapping in
 [docs/RDS3_Channel_Mapping.pdf](docs/RDS3_Channel_Mapping.pdf).
 
-## Measured test data
-
-All 16 channels of RDS3-62EB988A0FDC, with frontend attenuation at 0 dB.
-[Test conditions and downloadable CSVs](docs/test-data/README.md).
-
-**Through path — antenna inputs to receiver outputs (VNA S21, October 26, 2026)**
-
-![RDS3 through-path S21, all 16 channels](docs/test-data/through_path.png)
-
-[Raw readings](docs/test-data/through_path.csv) ·
-[Fixture-corrected readings](docs/test-data/through_path_corrected.csv).
-The lower plot removes a representative switch-fixture loss estimate.
-
-**Barracuda internal calibration path — receiver outputs (October 27, 2026)**
-
-![RDS3 Barracuda internal-cal output power, all 16 channels](docs/test-data/internal_cal.png)
-
-[Raw readings](docs/test-data/internal_cal_raw.csv) ·
-[Median and min/max](docs/test-data/internal_cal_summary.csv).
-Median of 11 complete passes, with both attenuators at 0 dB. Power is measured
-at the analyzer and includes output-switch, divider and cable loss. The final
-partial pass is excluded from the summary; the run stopped on a supply-reading timeout.
-
-## Control example
-
 ```python
 from rds3 import RDS3, Mode
 
