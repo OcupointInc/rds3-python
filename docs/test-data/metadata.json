@@ -114,7 +114,11 @@
     "through_path_data": "through_path_corrected.csv: fixture_corrected_s21_db",
     "internal_cal_data": "internal_cal_summary.csv: median_dbm",
     "internal_cal_complete_passes": 11,
-    "through_path_31db_data": "through_path_31db.csv: fixture_corrected_s21_db"
+    "through_path_31db_data": "through_path_31db.csv: fixture_corrected_s21_db",
+    "through_path_line_styles": {
+      "solid": "0 dB frontend attenuation, CH1\u201316",
+      "dashed": "31 dB frontend attenuation, CH1\u20138"
+    }
   },
   "through_path_31db": {
     "job_id": 138,
