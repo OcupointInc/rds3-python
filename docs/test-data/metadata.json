@@ -1,6 +1,5 @@
 {
   "dut": "RDS3-62EB988A0FDC",
-  "frontend_attenuation_db": 0,
   "through_path": [
     {
       "job_id": 139,
@@ -20,7 +19,8 @@
       "vna": "Keysight Technologies,P9375B,MY61100135,A.19.10.06",
       "vna_source_dbm": -35.0,
       "vna_if_bandwidth_hz": 100000.0,
-      "vna_correction_enabled": false
+      "vna_correction_enabled": false,
+      "frontend_attenuation_db": 0
     },
     {
       "job_id": 140,
@@ -40,7 +40,8 @@
       "vna": "Keysight Technologies,P9375B,MY61100135,A.19.10.06",
       "vna_source_dbm": -35.0,
       "vna_if_bandwidth_hz": 100000.0,
-      "vna_correction_enabled": false
+      "vna_correction_enabled": false,
+      "frontend_attenuation_db": 0
     }
   ],
   "internal_cal": {
@@ -100,7 +101,8 @@
       650.0
     ],
     "port_map": "port k = CH k (SW3) / CH k+8 (SW1)",
-    "barracuda_dsa_db": 0
+    "barracuda_dsa_db": 0,
+    "frontend_attenuation_db": 0
   },
   "internal_cal_run": "rds3_burnin_20261027",
   "internal_cal_instrument": "Rohde & Schwarz FSEM 20",
@@ -111,6 +113,29 @@
     "file": "test_data_overview.png",
     "through_path_data": "through_path_corrected.csv: fixture_corrected_s21_db",
     "internal_cal_data": "internal_cal_summary.csv: median_dbm",
-    "internal_cal_complete_passes": 11
+    "internal_cal_complete_passes": 11,
+    "through_path_31db_data": "through_path_31db.csv: fixture_corrected_s21_db"
+  },
+  "through_path_31db": {
+    "job_id": 138,
+    "started_at": "2026-10-26T13:58:21.018621+00:00",
+    "finished_at": "2026-10-26T13:58:32.935275+00:00",
+    "channels": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "frontend_attenuation_db": 31,
+    "firmware": "3.0.0-rc1",
+    "vna": "Keysight Technologies,P9375B,MY61100135,A.19.10.06",
+    "vna_source_dbm": -35.0,
+    "vna_if_bandwidth_hz": 100000.0,
+    "vna_correction_enabled": false,
+    "data_file": "through_path_31db.csv"
   }
 }
