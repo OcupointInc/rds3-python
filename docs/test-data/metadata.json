@@ -106,5 +106,11 @@
   "internal_cal_instrument": "Rohde & Schwarz FSEM 20",
   "internal_cal_setup": "One bank at a time, output switch and power divider into analyzer; no fixture correction applied.",
   "internal_cal_end": "Stopped after a missing supply reading triggered the watchdog during pass 12; passes 1\u201311 complete, pass 12 partial.",
-  "fixture_cal_use": "Representative joined-switch trace, interpolated in dB and subtracted from through-path S21 only; not a per-port calibration."
+  "fixture_cal_use": "Representative joined-switch trace, interpolated in dB and subtracted from through-path S21 only; not a per-port calibration.",
+  "overview_image": {
+    "file": "test_data_overview.png",
+    "through_path_data": "through_path_corrected.csv: fixture_corrected_s21_db",
+    "internal_cal_data": "internal_cal_summary.csv: median_dbm",
+    "internal_cal_complete_passes": 11
+  }
 }
